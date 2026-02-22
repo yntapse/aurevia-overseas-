@@ -108,11 +108,13 @@ app.post('/api/admin/login', (req, res) => {
     return res.status(401).json({ message: 'Invalid admin credentials' });
   }
 
+  // Fast JWT generation without database access
   const token = jwt.sign({ role: 'admin', username }, ADMIN_JWT_SECRET, {
     expiresIn: '12h',
     jwtid: randomUUID(),
   });
 
+  res.set('Content-Type', 'application/json');
   return res.json({ token, message: 'Login successful' });
 });
 

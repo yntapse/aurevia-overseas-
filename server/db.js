@@ -12,6 +12,9 @@ const shouldUseSSL = process.env.PGSSL_DISABLE !== 'true';
 const pool = new Pool({
   connectionString: DATABASE_URL,
   ssl: shouldUseSSL ? { rejectUnauthorized: false } : undefined,
+  max: 5, // Limit connections for serverless
+  idleTimeoutMillis: 10000, // Close idle connections quickly
+  connectionTimeoutMillis: 5000, // Timeout if connection takes too long
 });
 
 let initialized = false;
