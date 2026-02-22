@@ -13,6 +13,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Don't wait for database on startup - only when needed
+let dbInitError = null;
+
 const createSlug = (value) =>
   value
     .toLowerCase()
@@ -126,7 +129,18 @@ app.post('/api/admin/logout', requireAdminAuth, (_req, res) => {
   return res.json({ message: 'Logged out' });
 });
 
-app.get('/api/products', async (_req, res) => {
+// Middleware to ensure database is initialized (only for product endpoints)
+const ensureDb = async (_req, res, next) => {
+  try {
+    await ensureDatabase();
+    next();
+  } catch (error) {
+    console.error('Database initialization failed:', error);
+    res.status(500).json({ message: 'Database connection failed', error: error.message });
+  }
+};
+
+app.get('/api/products', ensureDb, async (_req, res) => {
   const result = await query(
     `SELECT id, name, slug, category, description, image_url, features, packaging_options, moq,
             countries_served, shelf_life, grades, display_order, created_at, updated_at
@@ -137,7 +151,7 @@ app.get('/api/products', async (_req, res) => {
   return res.json(result.rows.map(normalizeProduct));
 });
 
-app.get('/api/products/:slug', async (req, res) => {
+app.get('/api/products/:slug', ensureDb, async (req, res) => {
   const result = await query(
     `SELECT id, name, slug, category, description, image_url, features, packaging_options, moq,
             countries_served, shelf_life, grades, display_order, created_at, updated_at
@@ -154,7 +168,7 @@ app.get('/api/products/:slug', async (req, res) => {
   return res.json(normalizeProduct(result.rows[0]));
 });
 
-app.post('/api/products', requireAdminAuth, async (req, res) => {
+app.post('/api/products', requireAdminAuth, ensureDb, async (req, res) => {
   const payload = req.body || {};
 
   if (!payload.name || !payload.description || !payload.category) {
@@ -199,7 +213,7 @@ app.post('/api/products', requireAdminAuth, async (req, res) => {
   return res.status(201).json(normalizeProduct(result.rows[0]));
 });
 
-app.put('/api/products/:id', requireAdminAuth, async (req, res) => {
+app.put('/api/products/:id', requireAdminAuth, ensureDb, async (req, res) => {
   const existingResult = await query(
     `SELECT id, name, slug, category, description, image_url, features, packaging_options, moq,
             countries_served, shelf_life, grades, display_order, created_at, updated_at
@@ -257,7 +271,7 @@ app.put('/api/products/:id', requireAdminAuth, async (req, res) => {
   return res.json(normalizeProduct(result.rows[0]));
 });
 
-app.delete('/api/products/:id', requireAdminAuth, async (req, res) => {
+app.delete('/api/products/:id', requireAdminAuth, ensureDb, async (req, res) => {
   const result = await query('DELETE FROM products WHERE id = $1', [req.params.id]);
 
   if (result.rowCount === 0) {
@@ -267,5 +281,9 @@ app.delete('/api/products/:id', requireAdminAuth, async (req, res) => {
   return res.status(204).send();
 });
 
-export { ensureDatabase as ensureDbReady };
+export const ensureDbReady = async () => {
+  // For API startup: don't require database init, let it happen on first product request
+  return Promise.resolve();
+};
+
 export default app;
