@@ -32,7 +32,7 @@ export const seedProducts = [
     category: 'Agricultural Products',
     description:
       'Pure, organic jaggery made from sugarcane juice without any chemicals. Rich in minerals and iron, our jaggery is a healthy alternative to refined sugar.',
-    image_url: '/src/images/brown-refined-gud-jaggery.jpg',
+    image_url: '/images/brown-refined-gud-jaggery.jpg',
     features: [
       'Made from 100% pure sugarcane juice',
       'No chemicals or additives',
@@ -57,7 +57,7 @@ export const seedProducts = [
     category: 'Agricultural Products',
     description:
       'Farm-fresh green chillies with optimal heat and flavor. Carefully selected and packed to maintain freshness during export.',
-    image_url: '/src/images/Green-Chillis.jpg',
+    image_url: '/images/Green-Chillis.jpg',
     features: [
       'Length: 8-12 cm',
       'Fresh green color',

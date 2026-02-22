@@ -12,6 +12,13 @@ const resolveProductImageUrl = (imageUrl: string) => {
   if (!imageUrl) return '';
 
   const normalizedPath = imageUrl.replace(/\\/g, '/');
+  
+  // If it's a public image path (/images/), return as-is
+  if (normalizedPath.startsWith('/images/')) {
+    return imageUrl;
+  }
+
+  // Handle /src/images/ paths for backward compatibility
   const isLocalSrcImage =
     normalizedPath.startsWith('/src/images/') || normalizedPath.startsWith('src/images/');
 
