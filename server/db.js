@@ -9,13 +9,20 @@ if (!DATABASE_URL) {
 
 const shouldUseSSL = process.env.PGSSL_DISABLE !== 'true';
 
-const pool = new Pool({
-  connectionString: DATABASE_URL,
-  ssl: shouldUseSSL ? { rejectUnauthorized: false } : undefined,
-  max: 5, // Limit connections for serverless
-  idleTimeoutMillis: 10000, // Close idle connections quickly
-  connectionTimeoutMillis: 5000, // Timeout if connection takes too long
-});
+let poolInitialized = false;
+const pool = (() => {
+  if (!DATABASE_URL || DATABASE_URL.includes('undefined')) {
+    return null;
+  }
+  poolInitialized = true;
+  return new Pool({
+    connectionString: DATABASE_URL,
+    ssl: shouldUseSSL ? { rejectUnauthorized: false } : undefined,
+    max: 3,
+    idleTimeoutMillis: 5000,
+    connectionTimeoutMillis: 3000,
+  });
+})();
 
 let initialized = false;
 let initializePromise;
@@ -110,4 +117,26 @@ export const ensureDatabase = async () => {
   await initializePromise;
 };
 
-export const query = (text, params = []) => pool.query(text, params);
+export const query = async (text, params = []) => {
+  if (!pool) {
+    throw new Error('Database pool not initialized - DATABASE_URL not configured');
+  }
+  
+  try {
+    return await pool.query(text, params);
+  } catch (error) {
+    console.error('Query error:', error.message);
+    throw error;
+  }
+};
+
+export const getProductsWithFallback = async () => {
+  try {
+    if (!pool) throw new Error('No database');
+    const result = await pool.query('SELECT * FROM products ORDER BY display_order ASC');
+    return result.rows;
+  } catch (error) {
+    console.warn('Database unavailable, using seed data:', error.message);
+    return seedProducts;
+  }
+};

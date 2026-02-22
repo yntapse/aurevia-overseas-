@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
-import { ensureDatabase, query } from './db.js';
+import { ensureDatabase, query, getProductsWithFallback } from './db.js';
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
@@ -130,25 +130,32 @@ app.post('/api/admin/logout', requireAdminAuth, (_req, res) => {
 });
 
 // Middleware to ensure database is initialized (only for product endpoints)
-const ensureDb = async (_req, res, next) => {
+const ensureDb = async (req, res, next) => {
   try {
-    await ensureDatabase();
+    // Set a timeout for database initialization
+    const initPromise = ensureDatabase();
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Database initialization timeout')), 30000)
+    );
+    
+    await Promise.race([initPromise, timeoutPromise]);
     next();
   } catch (error) {
     console.error('Database initialization failed:', error);
-    res.status(500).json({ message: 'Database connection failed', error: error.message });
+    if (!res.headersSent) {
+      res.status(500).json({ message: 'Database connection failed', error: error.message });
+    }
   }
 };
 
-app.get('/api/products', ensureDb, async (_req, res) => {
-  const result = await query(
-    `SELECT id, name, slug, category, description, image_url, features, packaging_options, moq,
-            countries_served, shelf_life, grades, display_order, created_at, updated_at
-     FROM products
-     ORDER BY display_order ASC, created_at ASC`,
-  );
-
-  return res.json(result.rows.map(normalizeProduct));
+app.get('/api/products', async (_req, res) => {
+  try {
+    const products = await getProductsWithFallback();
+    return res.json(products.map(normalizeProduct));
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    return res.status(500).json({ message: 'Failed to fetch products', error: error.message });
+  }
 });
 
 app.get('/api/products/:slug', ensureDb, async (req, res) => {
